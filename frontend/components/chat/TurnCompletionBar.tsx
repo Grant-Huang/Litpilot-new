@@ -18,7 +18,7 @@ export function TurnCompletionBar({ stream, messages }: Props) {
 
   return (
     <div className="border-t border-[var(--lp-line)] bg-gray-50 px-4 py-2 flex items-center gap-3 text-sm">
-      <span className="text-[var(--lp-muted)]">
+      <span className="text-gray-600">
         流程完成 {done}/{total} 阶段
       </span>
       {hasReview && (
@@ -32,7 +32,7 @@ export function TurnCompletionBar({ stream, messages }: Props) {
         </span>
       )}
       {stream.reviewVersion && (
-        <span className="text-xs text-[var(--lp-muted)]">
+        <span className="text-xs text-gray-500">
           版本 {stream.reviewVersion}
         </span>
       )}

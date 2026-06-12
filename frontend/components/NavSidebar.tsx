@@ -30,7 +30,7 @@ export function NavSidebar() {
                 text-sm transition-colors
                 ${active
                   ? 'bg-white/15 text-white font-medium'
-                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
                 }
               `}
             >
@@ -40,7 +40,7 @@ export function NavSidebar() {
           );
         })}
       </div>
-      <div className="p-3 text-xs text-white/30 text-center">
+      <div className="p-3 text-xs text-white/60 text-center">
         LitPilot v0.1
       </div>
     </nav>

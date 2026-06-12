@@ -96,7 +96,7 @@ export function SessionList({ sessions, activeId, onSelect, onNew, onRename, onD
                     ⋯
                   </button>
                 </div>
-                <div className="text-xs text-[var(--lp-muted)] mt-0.5">
+                <div className={`text-xs mt-0.5 ${activeId === s.id ? 'text-[var(--lp-ink-soft)]' : 'text-[var(--lp-muted)]'}`}>
                   {s.user_turns || 0} 轮对话
                 </div>
               </button>

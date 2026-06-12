@@ -95,7 +95,7 @@ export default function LibraryPage() {
                     className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
                       tagFilter === tag
                         ? 'bg-[var(--lp-accent)] text-white border-[var(--lp-accent)]'
-                        : 'bg-gray-50 text-[var(--lp-muted)] border-[var(--lp-line)] hover:bg-gray-100'
+                        : 'bg-gray-50 text-gray-500 border-[var(--lp-line)] hover:bg-gray-100'
                     }`}
                   >
                     {tag}
@@ -106,7 +106,7 @@ export default function LibraryPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {filtered.length === 0 && (
-              <div className="p-4 text-sm text-[var(--lp-muted)] text-center">暂无文献</div>
+              <div className="p-4 text-sm text-gray-500 text-center">暂无文献</div>
             )}
             {filtered.map((item) => (
               <button
@@ -117,7 +117,11 @@ export default function LibraryPage() {
                 }`}
               >
                 <div className="font-medium text-sm truncate">{item.title || '无标题'}</div>
-                <div className="text-xs text-[var(--lp-muted)] mt-0.5 truncate">
+                <div className={`text-xs mt-0.5 truncate ${
+                  selected?.canonical_key === item.canonical_key
+                    ? 'text-[var(--lp-ink-soft)]'
+                    : 'text-[var(--lp-muted)]'
+                }`}>
                   {item.authors || '未知作者'}{item.year ? ` (${item.year})` : ''}
                 </div>
                 <div className="flex gap-1 mt-1 flex-wrap">
@@ -128,7 +132,7 @@ export default function LibraryPage() {
               </button>
             ))}
           </div>
-          <div className="p-3 border-t border-[var(--lp-line)] text-xs text-[var(--lp-muted)] text-center">
+          <div className="p-3 border-t border-[var(--lp-line)] text-xs text-gray-500 text-center">
             共 {filtered.length} 条文献
           </div>
         </div>
@@ -136,15 +140,15 @@ export default function LibraryPage() {
         {/* 右列：详情 */}
         <div className="flex-1 flex flex-col min-w-0">
           {!selected ? (
-            <div className="flex-1 flex items-center justify-center text-[var(--lp-muted)]">
+            <div className="flex-1 flex items-center justify-center text-gray-500">
               选择一条文献查看详情
             </div>
           ) : (
             <>
               <div className="p-4 border-b border-[var(--lp-line)]">
                 <h2 className="text-lg font-semibold">{selected.title}</h2>
-                <div className="text-sm text-[var(--lp-muted)] mt-1">{selected.authors} ({selected.year})</div>
-                <div className="flex gap-3 mt-2 text-xs text-[var(--lp-muted)]">
+                <div className="text-sm text-gray-600 mt-1">{selected.authors} ({selected.year})</div>
+                <div className="flex gap-3 mt-2 text-xs text-gray-500">
                   {selected.doi && <span>DOI: {selected.doi}</span>}
                   {selected.venue && <span>来源: {selected.venue}</span>}
                   <span>状态: {selected.fetch_status}</span>
@@ -159,7 +163,7 @@ export default function LibraryPage() {
                     className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                       tab === t
                         ? 'border-[var(--lp-accent)] text-[var(--lp-accent)]'
-                        : 'border-transparent text-[var(--lp-muted)] hover:text-[var(--lp-ink)]'
+                        : 'border-transparent text-gray-500 hover:text-[var(--lp-ink)]'
                     }`}
                   >
                     {t === 'info' ? '信息' : t === 'fulltext' ? '全文' : '笔记'}
@@ -211,7 +215,7 @@ export default function LibraryPage() {
                   </div>
                 )}
                 {tab === 'fulltext' && (
-                  <div className="text-sm text-[var(--lp-muted)]">
+                  <div className="text-sm text-gray-600">
                     {selected.has_full_text
                       ? <div>全文已获取。{' '}
                           {selected.has_pdf && <a href={selected.url} target="_blank" rel="noopener noreferrer" className="text-[var(--lp-accent)] underline">查看 PDF</a>}
@@ -245,7 +249,7 @@ function Field({ label, value, editable, editKey, editData, setEditData, editPla
 }) {
   return (
     <div>
-      <div className="text-xs font-medium text-[var(--lp-muted)] mb-1">{label}</div>
+      <div className="text-xs font-medium text-gray-500 mb-1">{label}</div>
       {editable && editKey && editData && setEditData ? (
         <input
           value={(editData[editKey] as string) ?? value ?? ''}

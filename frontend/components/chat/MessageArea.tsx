@@ -81,7 +81,7 @@ export function MessageArea({ messages, stream }: Props) {
       {/* Streaming think */}
       {displayState.think && (
         <div className="flex justify-start">
-          <div className="max-w-[75%] px-4 py-3 rounded-[var(--lp-radius-lg)] bg-gray-50 border border-gray-200 text-[var(--lp-muted)] text-xs italic">
+          <div className="max-w-[75%] px-4 py-3 rounded-[var(--lp-radius-lg)] bg-gray-50 border border-gray-200 text-gray-600 text-xs italic">
             💭 {displayState.think}
           </div>
         </div>

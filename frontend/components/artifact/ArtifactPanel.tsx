@@ -50,7 +50,7 @@ export function ArtifactPanel({ review, matrix, outline, messages, sessionId }: 
             className={`flex-1 px-2 py-2 text-xs font-medium transition-colors
               ${tab === t
                 ? 'text-[var(--lp-accent)] border-b-2 border-[var(--lp-accent)]'
-                : 'text-[var(--lp-muted)] hover:text-[var(--lp-ink)]'
+                : 'text-gray-500 hover:text-[var(--lp-ink)]'
               }`}
           >
             {t}
@@ -67,7 +67,7 @@ export function ArtifactPanel({ review, matrix, outline, messages, sessionId }: 
         ) : tab === '大纲' ? (
           <pre className="text-sm whitespace-pre-wrap">{content}</pre>
         ) : (
-          <div className="text-sm text-[var(--lp-muted)]">
+          <div className="text-sm text-gray-500">
             文献列表将在综述生成后可用
           </div>
         )}
@@ -76,7 +76,7 @@ export function ArtifactPanel({ review, matrix, outline, messages, sessionId }: 
         <div className="border-t border-[var(--lp-line)] px-3 py-2 flex gap-2">
           <button
             onClick={() => navigator.clipboard.writeText(content)}
-            className="text-xs text-[var(--lp-muted)] hover:text-[var(--lp-ink)]"
+            className="text-xs text-gray-500 hover:text-[var(--lp-ink)]"
           >
             复制
           </button>
@@ -91,7 +91,7 @@ export function ArtifactPanel({ review, matrix, outline, messages, sessionId }: 
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="text-xs text-[var(--lp-muted)] hover:text-[var(--lp-ink)]"
+              className="text-xs text-gray-500 hover:text-[var(--lp-ink)]"
             >
               导出 .md
             </button>

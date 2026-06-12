@@ -48,7 +48,7 @@ export function WorkflowCard({ card }: Props) {
       {expanded && card.logs && card.logs.length > 0 && (
         <div className="border-t border-[var(--lp-line)] px-3 py-2 bg-gray-50">
           {card.logs.map((log, i) => (
-            <div key={i} className="text-xs text-[var(--lp-muted)] py-0.5 font-mono">
+            <div key={i} className="text-xs text-gray-600 py-0.5 font-mono">
               {log}
             </div>
           ))}
