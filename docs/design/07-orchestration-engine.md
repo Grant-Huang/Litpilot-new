@@ -6,7 +6,7 @@
 
 ## 1. 模块划分
 
-| 模块 | 职责 |
+|| 模块 | 职责 |
 |------|------|
 | `literature_turn.py` | 会话 setup、意图判定、理解+路由、委托 pipeline/generate/finalize |
 | `literature_turn_pipeline.py` | 检索 → 抓取 → 引用 → 结构化 → 大纲 |
@@ -15,6 +15,8 @@
 | `literature_router.py` | 续聊意图路由（3 意图→规则优先 + LLM 兜底） |
 | `literature_clarification.py` | 澄清门（first_turn/search_zero/outline_confirm） |
 | `content_pipeline.py` | 材料分栏与压缩（[web_search]/[网页材料]/[Citations]/[已生成综述]） |
+| `search_aspects.py` | 按数据源解析检索查询（`query_for_source`） |
+| `retry_utils.py` | 异步重试工具（指数退避，`retry_async`） |
 
 引擎入口（被 TaskManager 调用）：
 

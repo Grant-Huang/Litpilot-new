@@ -71,10 +71,11 @@
 
 | 端点 | 响应 data |
 |------|-----------|
-| `GET /api/sessions/{id}/review?version=latest` | `{ "version": "v2", "markdown": "…", "versions": ["v1","v2"] }` |
-| `GET /api/sessions/{id}/matrix` | `{ "markdown": "…" }` |
-| `GET /api/sessions/{id}/outline` | `{ "outline": LiteratureOutline | null }` |
-| `GET /api/sessions/{id}/library` | `{ "items": [LibraryItem] }`（本会话 provenance 过滤） |
+| `GET /api/sessions/{id}/review` | `{ "version": "v2", "content": "…综述 markdown…" }`（返回最新版本，不做版本选择） |
+| `GET /api/sessions/{id}/matrix` | `{ "content": "…" }` |
+| `GET /api/sessions/{id}/outline` | `{ …LiteratureOutline \| {} }` |
+
+> **变更说明**：移除了 `GET /sessions/{id}/library` 端点（本会话 provenance 过滤），实际通过 `GET /api/library` 获取全局文献库。review 端点不做版本参数，始终返回最新版本。
 
 ---
 
@@ -113,108 +114,73 @@ SSE 流（详见 04）。`since` 为已接收的最大事件 `seq`，断线重�
 
 ## 4. 文献库 Library
 
-> 路由前缀 `/library`（与 FRS 一致，不带 `/api`）；如统一前缀可在实现时加 `/api/library`，但需前后端一致。本文采用 `/library`。
+> 路由前缀 `/api/library`（实际实现统一使用 `/api` 前缀）。
 
-### `GET /library/items`
-- 响应 `data`: `{ "items": [LibraryItem] }`（按 display_index 升序，失败项可前置由前端排序）。
+### `GET /api/library`
+- 查询参数：`search`（可选，标题/作者/DOI 子串匹配）、`tags`（可选，逗号分隔，OR 逻辑）。
+- 响应 `data`: `{ "items": [LibraryItem] }`（按 display_index 升序）。
 
-### `GET /library/items/{id}`
-- 响应 `data`: `{ "item": LibraryItem, "full_text": "markdown | null" }`。
+### `GET /api/library/{key}`
+- `key` 可以是 `canonical_key`（如 `doi:10.1145/xxx`）或 `item_id`。
+- 响应 `data`: `{ …LibraryItem }`。
 
-### `GET /library/tags`
-- 响应 `data`: `{ "tags": [{"tag": "mom", "count": 7}] }`。
+### `PATCH /api/library/{key}`
+- 请求：`{ "doi"?: string, "tags"?: string[]|string, "title"?: string, "authors"?: string }`
+- 行为：`tags` 为字符串时自动按逗号拆分为数组。
+- 响应：`{ "data": LibraryItem }`。
 
-### `GET /library/items/{id}/related-sessions`
-- 响应 `data`: `{ "sessions": [{"session_id","session_title","review_ref_index","initial_query"}] }`。
+### `POST /api/library/{key}/refresh`
+- 刷新单条文献元数据（当前返回原数据占位）。
+- 响应：`{ "data": LibraryItem }`。
 
-### `PATCH /library/items/{id}/star`
-- 请求：`{ "starred": true }` → 响应 `{ "item": LibraryItem }`。
-
-### `PATCH /library/items/{id}/tags`
-- 请求：`{ "tags": ["mom","agent"] }`（≤20 个，每个 ≤48 字符，去重大小写不敏感）→ 响应 `{ "item": LibraryItem }`。
-
-### `PATCH /library/items/{id}/metadata`
-- 请求：`{ "doi"?: string, "url"?: string, "venue"?: string, "year"?: string, "volume"?, "issue"?, "pages"?, "publisher"?, "refresh_crossref"?: boolean }`
-- 行为：保存书目；`refresh_crossref=true` 时重查 Crossref（无 DOI 先 OpenAlex 反查）。
-- 响应：`{ "item": LibraryItem }`。
-
-### `DELETE /library/items/{id}`
-删除单条（连带 `sources/{id}.md`）。响应 `{ "deleted": true }`。
-
-### `DELETE /library/items`
-清空。响应 `{ "deleted_count": N }`。
-
-### `POST /library/items/{id}/enrich`
-按 DOI 富化（OpenAlex/Crossref）。响应 `{ "item": LibraryItem }`。
-
-### `POST /library/refresh-metadata`
-批量并行刷新。
-- 请求：`{ "item_ids"?: [string], "parallel": 4 }`（parallel 1–12）。
-- 响应：`{ "updated_count": N, "items": [LibraryItem] }`。
-
-### `POST /library/reconcile`
-从会话/产物补抽引用。
-- 请求：`{ "session_id"?: string, "mode": "session|all|failed_only" }`。
-- 响应：`{ "added": N, "merged": M }`。
-
-### `GET /library/pdfs/{filename}`
-返回 PDF 二进制（校验路径在 `pdfs/` 下，防目录穿越）。`Content-Type: application/pdf`。
+> **变更说明**：实际实现的文献库 API 较原设计大幅简化，移除了 `items/{id}/related-sessions`、`star`、`tags`（单独）、`metadata`（单独）、`DELETE`、`refresh-metadata`（批量）、`reconcile`、`pdfs/{filename}` 等端点。标签编辑合并到通用 `PATCH` 端点。DOI 编辑通过 `PATCH` 的 `doi` 字段实现。
 
 ---
 
 ## 5. 设置 Settings
 
-### 个人偏好（精简版基本为空）
-- `GET /api/settings/personal/preferences` → `{ }`（精简版无字段；保留端点返回空对象）。
-- `PUT /api/settings/personal/preferences` → 接受空体；返回 `{ }`。
+> **实际路由前缀**：`/api/settings/*`。以下是实际实现的端点。
 
-> 说明：精简版移除 `citation_format`。前端个人页展示只读说明「引用格式固定为 APA」。
+### 个人偏好（精简版）
+- 前端页面 `/settings/personal` 为只读说明「引用格式固定为 APA」。无后端端点。
 
-### 概览
-- `GET /api/settings/system/overview` → `data`:
+### 概览与系统配置
+- `GET /api/settings/system` → `data`:
 ```jsonc
 {
-  "capabilities": [{"capability_id":"review_main","label":"综述主模型","status":"ok|pending","summary":"deepseek-v4 · …"}],
-  "credentials": [{"id","type","name","status"}],
-  "instances": [{"id","name","provider","model_name"}],
-  "storage": {"backend":"local|turso|hybrid","status":"ok|pending","tenant_id":"default"}
+  "python_version": "3.14.x",
+  "data_dir": "…",
+  "storage_mode": "local",
+  "credential_count": N, "instance_count": N,
+  "capability_count": N, "library_count": N,
+  "session_count": N,
+  "backend": "local", "tenant_id": "default",
+  "database_url": "", "has_auth_token": false, "masked_auth_token": ""
 }
 ```
-
-### 存储
-- `GET /api/settings/system/storage` → `{ "has_auth_token": bool, "masked_auth_token": "··· ab12", "database_url": "…", "url_source":"env|admin|none", "token_source":"…", "turso_ready": bool, "backend":"local|turso", "tenant_id":"default" }`
-- `PUT /api/settings/system/storage` → 请求 `{ "database_url"?: string, "auth_token"?: string }`（token 空串=移除，省略=不改）。
+- `PUT /api/settings/system` → 请求 `{ "storage_mode"?, "data_dir"?, "max_storage_mb"? }`。
 
 ### 凭据
-- `GET /api/settings/system/credentials` → `{ "items": [Credential（掩码）] }`
-- `POST /api/settings/system/credentials` → 请求 `{ "type", "name", "secret"?, "base_url"?, "group_id"? }`（201）
-- `GET /api/settings/system/credentials/{id}`
-- `PUT /api/settings/system/credentials/{id}` → `{ "name"?, "secret"?, "base_url"?, "group_id"? }`（secret 空串=清除→status unknown；改 secret 时 last_verified_at=null）
-- `DELETE /api/settings/system/credentials/{id}`（被实例引用 → 409）
-- `POST /api/settings/system/credentials/{id}/test` → 请求 `{ "query"?: string }`（默认 `"transformer attention paper arxiv"`）→ `{ "ok": bool, "message": "…", "hits"?: N, "tested_at": "…" }`
+- `GET /api/settings/credentials` → `{ "data": { "<key>": { "masked": "··· 1a2b" } } }`
+- `PUT /api/settings/credentials` → 请求 `{ "<key>": "明文secret" }`（按 key 匹配或新建）
+- `POST /api/settings/credentials/{key}/test` → `{ "data": { "ok": true, "message": "…" } }`（模拟测试）
 
-Credential 公开结构：
-```jsonc
-{ "id","type","name","has_secret":true,"masked_secret":"··· 1a2b",
-  "base_url":"https://api.deepseek.com/v1","group_id":"",
-  "status":"ok|fail|unknown","last_verified_at":"…","created_at":"…","updated_at":"…" }
-```
+> **变更说明**：实际实现按 key（如 `openai_api_key`）映射凭据，而非按 `id`。测试端点返回模拟结果。
 
 ### 实例
-- `GET /api/settings/system/instances` → `{ "items": [Instance] }`
-- `POST /api/settings/system/instances` → `{ "name","credential_id","model_name","default_params"? }`（201）
-- `GET/PUT/DELETE /api/settings/system/instances/{id}`（被能力引用 → 409）
-- `POST /api/settings/system/instances/{id}/test` → 绑定校验 → `{ "ok": bool, "message": "已通过基础检查" }`
+- `GET /api/settings/instances` → `{ "data": { "instances": [Instance] } }`
+- `POST /api/settings/instances` → `{ "name", "provider", "model", "base_url", "api_key"?, "max_tokens"?, "temperature"? }`（201）
+- `PATCH /api/settings/instances/{id}` → 部分更新
+- `DELETE /api/settings/instances/{id}`
+- `POST /api/settings/instances/{id}/test` → `{ "data": { "ok": true, "message": "…" } }`（模拟测试）
 
 ### 能力
-- `GET /api/settings/system/capabilities` → `{ "items": [Capability] }`
-- `PUT /api/settings/system/capabilities/{capability_id}` → `{ "primary_ref"?: {"kind":"credential|instance","id":"…"}, "params"?: {…}, "enabled"?: bool }`
-- `POST /api/settings/system/capabilities/web_fetch/test` → 请求 `{ "url"?: string }` → `{ "ok": bool, "provider","raw_bytes","text_chars","is_pdf","title"?,"preview": "前1200字" }`
-- `POST /api/settings/system/capabilities/web_search/test` → 请求 `{ "query"?: string }` → `{ "ok": bool, "provider","hits": N, "results": [前3条] }`
+- `GET /api/settings/capabilities` → `{ "data": { "bindings": [{ "capability", "instance_id", "instance_name" }] } }`
+- `PUT /api/settings/capabilities/{capability}` → `{ "instance_id": "…" }`
 
-### Prompts 默认与元数据
-- `GET /api/settings/system/prompts/defaults` → `{ "defaults": {"<key>": "模板"}, "meta": [{"key","label","group","hint","max_len","default_max_tokens","max_tokens_limit"}] }`
-- Prompts 保存复用 `PUT /api/settings/system/capabilities/{prompts|orchestrator|review_main}`（见 06）。
+### Prompts
+- `GET /api/settings/prompts` → `{ "data": { "prompts": [{ "name", "system_prompt" }] } }`
+- `PUT /api/settings/prompts/{name}` → 保存提示词覆盖（当前占位）
 
 ---
 

@@ -157,3 +157,39 @@ idle → pending（POST /tasks 后等首字节）
 2. 累积 `artifact` → review/matrix/outline 产物。
 3. 累积 `text` → 聊天/流程文本。
 4. `done` → 组装 `LitPilotMessage`（含 extras），`POST /api/sessions/{id}/messages` 落盘，再 `reloadSessionMessages` 回读校验（maxAttempts:5）。
+
+## 9. 实现变更说明
+
+### 9.1 前端 StreamState 结构（`lib/types.ts` 实际实现）
+
+```typescript
+interface StreamState {
+  status: 'idle' | 'pending' | 'streaming' | 'settling' | 'done' | 'error';
+  executionTrace: WorkflowCard[];   // 简化版 {stage, state, logs}
+  artifacts: { review: string; matrix: string; outline: string };
+  text: string;                     // 合并了原 chatText + processText
+  think: string;                    // 独立思考区文本
+  intent?: Intent;
+  reviewVersion?: string;
+  error?: string;
+}
+```
+
+**关键变更**：
+- `chatText`/`processText` 合并为统一的 `text` 字段（`reduceEvent` 中 `text` 事件不再区分 delivery）。
+- 新增独立的 `think` 字段存储思考区内容（`think` 事件累积）。
+- `WorkflowCard` 简化为 `{stage: string, state: CardState, logs?: string[]}`。
+
+### 9.2 SSE 解析器（`lib/sse.ts` 实际实现）
+
+- 使用 `fetch` + `ReadableStream` 手解析 SSE 帧（非 EventSource）。
+- `reduceEvent` 函数：按事件类型更新 `StreamState`。
+  - `stage` → 更新 `executionTrace`（通过 `updateTrace` 映射中文阶段名 → stage 标识）。
+  - `text` → 累积到 `state.text`。
+  - `think` → 累积到 `state.think`。
+  - `artifact` → 按 id（review/matrix/outline）累积到对应 `artifacts` 字段。
+  - `extension` → 处理 `literature_intent` 扩展事件。
+  - `done` → 设置状态为 done，提取 reviewVersion。
+  - `error` → 设置错误信息。
+- `INITIAL_STATE` 导出常量用于重置状态。
+- 看门狗：120s 超时 abort。

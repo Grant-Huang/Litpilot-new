@@ -160,3 +160,34 @@ sequenceDiagram
 | `tests/test_emit_adapter.py` | TaskEmit 各方法生成正确信封 |
 
 > 用 fake `run_turn`（注入预置 emit 序列）驱动 TaskManager，断言 SSE 输出帧；不依赖真实引擎。
+
+## 8. 实现变更说明
+
+### 8.1 实际 TaskRecord 结构
+
+```python
+@dataclass
+class TaskRecord:
+    task_id: str
+    session_id: str
+    message: str
+    fetch_urls: list[str]
+    status: str = "pending"
+    events: list = field(default_factory=list)
+    error: str | None = None
+    _seq: int = 0
+    _new_event: asyncio.Event = field(default_factory=asyncio.Event)
+    _cancel: asyncio.Event = field(default_factory=asyncio.Event)
+    _created_at: float = field(default_factory=time.monotonic)
+```
+
+### 8.2 TaskEmit 适配器
+
+`TaskEmit` 类封装了 `TaskManager.emit`，提供与引擎 `EmitFn` 协议一致的方法（`stage`/`text`/`think`/`artifact`/`extension`）。每个方法内部调 `tm.emit(task_id, event_type, data)` 并自动分配递增 `seq`。
+
+### 8.3 SSE 生成器行为
+
+- `event_stream(tm, task_id, since)` 先回放 `seq > since` 的历史事件。
+- 任务运行中：15s 超时发 `heartbeat`。
+- 任务结束：回放剩余事件后结束流。
+- 任务不存在：返回 `error` 事件。

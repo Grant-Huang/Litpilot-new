@@ -15,7 +15,8 @@ LitPilot 是面向科研人员的**文献综述助手**。用户用自然语言�
 | 意图数量 | **3 类** | `new_topic`（首轮/完整流水线）、`append_urls`（追加链接重写综述）、`query_corpus`（基于已有综述/语料问答，兜底） |
 | 引用格式 | **仅 APA** | 移除 ACM 与个人设置切换；底层 `citation_format` 参数恒为 `"apa"` |
 | 版本规则 | **v(n+1)** | 每次产出新综述即 `v1, v2, v3…`，无 `a/b` 字母后缀 |
-| 已删除分支 | `revise` / `subtopic_change` / `review_refine` / `short_answer` / `expand_search` / `retry_failed` / `manage_library` / `supplement` | 续聊路由仅在 `append_urls` 与 `query_corpus` 间二选一 |
+| 版本选择器 | **不做** | 管理员/用户不需要手动切换综述版本；综述面板仅展示最新版本 |
+| 已删除分支 | `revise` / `subtopic_change` / `review_refine` / `short_answer` / `expand_search` / `retry_failed` / `manage_library` / `supplement` | 续聊路由仅在 `append_urls` 与 `query_corpus` 间二选一；本版不再实现此 8 类意图 |
 | 个人设置 | 移除 `citation_format` 字段 | 个人设置页保留但置空或仅展示只读说明（见 09） |
 
 > 决策依据：用户在规划阶段明确选择"按 flow-card 精简版"。
@@ -65,7 +66,7 @@ LitPilot 是面向科研人员的**文献综述助手**。用户用自然语言�
 
 ### FR-6 Artifact 面板
 - FR-6.1 四 Tab：**大纲 / 综述 / 矩阵 / 文献**。
-- FR-6.2 综述 Tab 含版本下拉（latest / v1 / v2…）+ 导出按钮。
+- FR-6.2 综述 Tab 含导出按钮（复制/下载 .md）；展示最新版本（不做版本下拉选择器）。
 - FR-6.3 文献 Tab 取 `GET /api/sessions/{id}/library`，可按子主题标签筛选、复制 APA。
 - FR-6.4 存在综述产物即认为有面板；未打开时轻推动画 + 完成栏 CTA 引导。
 

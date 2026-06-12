@@ -70,6 +70,33 @@ async def get_prompt(key: str) -> str:
     return ""
 
 
+def load_all_prompts() -> dict[str, str]:
+    """Return all prompt defaults as a dict of key -> text (synchronous)."""
+    overrides = _get_overrides()
+    keys = [
+        "understanding_system_template",
+        "review_system_prompt_template",
+        "matrix_system_template",
+        "query_corpus_system_template",
+    ]
+    _KEY_TO_ATTR = {
+        "understanding_system_template": "DEFAULT_UNDERSTANDING_SYSTEM",
+        "review_system_prompt_template": "DEFAULT_REVIEW_SYSTEM_PROMPT",
+        "matrix_system_template": "DEFAULT_MATRIX_SYSTEM",
+        "query_corpus_system_template": "DEFAULT_QUERY_CORPUS_SYSTEM",
+    }
+    from app.agents import prompt_registry as pr
+    result = {}
+    for key in keys:
+        custom = overrides.get(key, "")
+        if custom and custom.strip():
+            result[key] = custom
+        else:
+            attr = _KEY_TO_ATTR.get(key)
+            result[key] = getattr(pr, attr, "") if attr else ""
+    return result
+
+
 async def get_prompt_max_tokens(key: str) -> int:
     """Return max_tokens for key, clamped to [80, limit]."""
     overrides = _get_overrides()

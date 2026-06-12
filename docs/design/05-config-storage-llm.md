@@ -117,11 +117,14 @@ async def get_web_fetch_provider() -> str: ...       # 默认 native
 async def get_pdf_extract_backend() -> str: ...      # 默认 pymupdf4llm
 async def get_s2_api_key() -> str: ...               # 可空
 async def get_jina_reader_api_key() -> str: ...      # 可空
+async def get_web_search_api_key() -> str: ...       # Web 搜索 API Key（供工具层调用）
 async def get_fetch_parallel() -> int: ...           # 默认 3，clamp 1..8
 # 综述/编排 LLM 配置
 async def get_review_llm_config() -> dict: ...
 async def get_orchestrator_llm_config() -> dict: ... # 回退 review_main
 ```
+
+> **新增**：`get_web_search_api_key()` 用于获取 web 搜索 API 密钥。
 
 > 这些 getter 的名字与返回必须与 ref 调用一致（见 01 §4），否则复用工具会 ImportError。
 

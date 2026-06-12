@@ -155,6 +155,10 @@ async def get_prompt(key: str) -> str:
 async def get_prompt_max_tokens(key: str) -> int:
     """返回 params[f'{key}_max_tokens']；缺省取 META.default_max_tokens；clamp 到 [80, max_tokens_limit]。"""
 
+def load_all_prompts() -> dict[str, str]:
+    """同步读取全部提示词默认值与覆盖值，返回 {key: text}。
+    用于 GET /api/settings/prompts 端点。"""
+
 # 便捷封装（ref paper_attributes 依赖 get_attribute_system_prompt）
 async def get_attribute_system_prompt() -> str: return await get_prompt("attribute_system_template")
 ```

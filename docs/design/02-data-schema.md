@@ -83,26 +83,22 @@
 }
 ```
 
-### 3.1 WorkflowCard（执行轨迹元素）
+### 3.1 WorkflowCard（执行轨迹元素 — 简化版）
+
+前端实际使用的简化结构（stage + state + logs）：
 
 ```jsonc
 {
-  "type": "search",                  // understand|brief|search|fetch|cite|attributes|outline|generate|matrix|corpus_qa|clarify|manage
-  "title": "文献检索",
-  "state": "done",                   // pending|running|done|error
-  "summary": "检索 3 pass · 纳入 47 篇 · 21s",
-  "steps": [
-    {
-      "kind": "tool",               // tool|inline|think
-      "state": "done",
-      "text": "逻辑检索 · arXiv（21 篇）",
-      "result": "21 hits",          // 可选后缀
-      "detail": "query=graph neural network…"  // 可选，展开详情
-    }
-  ],
-  "tree": { /* 仅 search 卡，检索进度树，见 §3.3 */ }
+  "stage": "search",               // understand|brief|search|fetch|cite|attributes|outline|generate|matrix|corpus_qa|clarify|manage
+  "state": "done",                 // pending|running|done|error
+  "logs": [                        // 可展开的日志行列表
+    "逻辑检索 · arXiv（21 篇）",
+    "OpenAlex 返回 18 条命中"
+  ]
 }
 ```
+
+> **变更说明**：原设计含 `type/title/summary/steps/tree` 等复杂嵌套结构，实现中简化为 `stage/state/logs` 三字段。前端 WorkflowCard 组件据此渲染：阶段图标 + 状态标识 + 日志行展开/折叠。后端 SSE `stage` 事件通过 `sse.ts` 的 `updateTrace` 函数映射中文阶段名为 stage 标识。
 
 ### 3.2 turnWorkflow（回合完成栏数据）
 

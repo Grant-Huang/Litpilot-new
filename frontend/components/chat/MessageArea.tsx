@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import type { LitPilotMessage, StreamState } from '@/lib/types';
-import { WorkflowCard } from './WorkflowCard';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import type { LitPilotMessage, StreamState, WorkflowCard as WFCard } from '@/lib/types';
+import { WorkflowCard } from '@/components/chat/WorkflowCard';
 
 interface Props {
   messages: LitPilotMessage[];
@@ -11,76 +11,100 @@ interface Props {
 
 export function MessageArea({ messages, stream }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const pendingEventsRef = useRef<any[]>([]);
+  const rafRef = useRef<number>(0);
+  const [displayState, setDisplayState] = useState<StreamState>(stream);
+
+  // rAF-based event batching for streaming updates
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      setDisplayState(stream);
+    });
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [stream]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, stream.chatText, stream.processText, stream.executionTrace]);
+  }, [messages, displayState.text]);
 
-  if (messages.length === 0 && stream.status === 'idle') {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-5xl font-bold text-[var(--lp-ink)]">
-            Lit<span className="text-[var(--lp-accent)]">Pilot</span>
-          </div>
-          <p className="text-[var(--lp-muted)] text-sm max-w-md">
-            描述你的研究主题或综述问题，LitPilot 将帮你检索、整理并撰写文献综述。
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const streamingCards: WFCard[] = displayState.executionTrace.map((t) => ({
+    stage: t.stage,
+    state: t.state,
+    logs: t.logs,
+  }));
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6">
-      <div className="max-w-3xl mx-auto space-y-4">
-        {messages.map((msg) => (
-          <div key={msg.id}>
-            {msg.role === 'user' ? (
-              <div className="flex justify-end">
-                <div className="bg-[var(--lp-ink)] text-white px-4 py-2 rounded-[var(--lp-radius-lg)] max-w-[80%] text-sm">
-                  {msg.content}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {msg.extras?.executionTrace && msg.extras.executionTrace.length > 0 && (
-                  <div className="space-y-2">
-                    {msg.extras.executionTrace.map((card, i) => (
-                      <WorkflowCard key={i} card={card} />
-                    ))}
-                  </div>
-                )}
-                {msg.content && (!msg.extras?.delivery || msg.extras.delivery === 'chat') && (
-                  <div className="px-2 py-1 text-sm text-[var(--lp-ink-soft)]">
-                    {msg.content}
-                  </div>
-                )}
-              </div>
+    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      {messages.map((msg) => (
+        <div
+          key={msg.id}
+          className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+        >
+          <div
+            className={`
+              max-w-[75%] px-4 py-3 rounded-[var(--lp-radius-lg)]
+              ${msg.role === 'user'
+                ? 'bg-[var(--lp-ink)] text-white'
+                : 'bg-white border border-[var(--lp-line)]'}
+            `}
+          >
+            <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+            {msg.extras?.clarification && (
+              <ClarificationPrompt text={msg.extras.clarification} />
             )}
           </div>
-        ))}
+        </div>
+      ))}
 
-        {/* Streaming content */}
-        {(stream.status === 'streaming' || stream.status === 'pending') && (
-          <div className="space-y-2">
-            {stream.executionTrace.map((card, i) => (
-              <WorkflowCard key={`stream-${i}`} card={card} />
-            ))}
-            {stream.chatText && (
-              <div className="px-2 py-1 text-sm">{stream.chatText}</div>
-            )}
+      {/* Streaming cards */}
+      {streamingCards.length > 0 && (
+        <div className="space-y-1">
+          {streamingCards.map((card, i) => (
+            <WorkflowCard key={`${card.stage}-${i}`} card={card} />
+          ))}
+        </div>
+      )}
+
+      {/* Streaming text */}
+      {displayState.text && (
+        <div className="flex justify-start">
+          <div className="max-w-[75%] px-4 py-3 rounded-[var(--lp-radius-lg)] bg-white border border-[var(--lp-line)]">
+            <div className="text-sm whitespace-pre-wrap">
+              {displayState.text}
+              <span className="animate-pulse">▍</span>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {stream.status === 'error' && (
-          <div className="px-3 py-2 rounded-[var(--lp-radius-md)] bg-red-50 text-red-700 text-sm">
-            错误: {stream.error || '未知错误'}
+      {/* Streaming think */}
+      {displayState.think && (
+        <div className="flex justify-start">
+          <div className="max-w-[75%] px-4 py-3 rounded-[var(--lp-radius-lg)] bg-gray-50 border border-gray-200 text-[var(--lp-muted)] text-xs italic">
+            💭 {displayState.think}
           </div>
-        )}
+        </div>
+      )}
 
-        <div ref={bottomRef} />
-      </div>
+      {/* Error */}
+      {displayState.error && (
+        <div className="flex justify-start">
+          <div className="max-w-[75%] px-4 py-3 rounded-[var(--lp-radius-lg)] bg-red-50 border border-red-200 text-red-700 text-sm">
+            ⚠ {displayState.error}
+          </div>
+        </div>
+      )}
+
+      <div ref={bottomRef} />
+    </div>
+  );
+}
+
+function ClarificationPrompt({ text }: { text: string }) {
+  return (
+    <div className="mt-2 p-2 rounded-[var(--lp-radius-sm)] bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs">
+      <span className="font-medium">需要澄清：</span> {text}
     </div>
   );
 }

@@ -167,13 +167,26 @@ backend/
 ```
 frontend/
 ├── app/                     # Next.js App Router
-│   ├── layout.tsx
-│   ├── chat/[[...sessionId]]/page.tsx
-│   ├── library/page.tsx
-│   └── settings/...
-├── components/              # ChatBubble、WorkflowCard、Composer、ArtifactPanel、Library* 等
-├── lib/                     # api 客户端、SSE 解析、stream 状态机、类型
-├── styles/                  # 接入 brand tokens
+│   ├── layout.tsx           # 根布局 + ToastProvider
+│   ├── page.tsx             # 重定向到 /chat
+│   ├── chat/
+│   │   ├── page.tsx         # 主聊天页（使用 ChatShell）
+│   │   └── [sessionId]/page.tsx  # 动态路由聊天页
+│   ├── library/page.tsx     # 文献库
+│   └── settings/            # 设置（layout + personal + admin/*）
+├── components/
+│   ├── ToastProvider.tsx    # 全局 Toast 通知
+│   ├── NavSidebar.tsx       # 导航侧栏
+│   ├── LitPilotMark.tsx     # 品牌 Logo
+│   ├── chat/ (ChatShell, SessionList, MessageArea, WorkflowCard, TurnCompletionBar, Composer)
+│   ├── artifact/ (ArtifactPanel)
+│   └── (library/settings 内联在各 page 中)
+├── lib/
+│   ├── api.ts               # REST 客户端
+│   ├── sse.ts               # SSE 解析 + 流状态机
+│   └── types.ts             # TypeScript 类型定义
+├── styles/
+│   └── tokens.css           # brand tokens
 └── package.json
 ```
 
@@ -188,8 +201,8 @@ frontend/
 | 文件锁 | filelock | 并发安全 |
 | 测试 | pytest + pytest-asyncio + respx | 异步 + HTTP mock |
 | Lint | flake8 | 用户规则要求 |
-| 前端 | Next.js（App Router）+ TypeScript | FRS 参考实现 |
-| 前端样式 | CSS Modules / Tailwind + brand tokens | 接入 `docs/brand` |
+| 前端 | Next.js 16.2.9 LTS（App Router）+ TypeScript + React 19 | FRS 参考实现升级 |
+| 前端样式 | Tailwind CSS + brand tokens（CSS 变量） | 接入 `docs/brand` |
 
 ## 8. 数据流（一次 new_topic 综述）
 

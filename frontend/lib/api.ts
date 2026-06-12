@@ -55,16 +55,9 @@ export const api = {
     ),
 
   // Reviews
-  getReview: (sessionId: string, version?: string) => {
-    const q = version ? `?version=${version}` : '';
-    return request<{ status: string; data: { version: string; content: string } }>(
-      `/api/sessions/${sessionId}/review${q}`,
-    );
-  },
-
-  getReviewVersions: (sessionId: string) =>
-    request<{ status: string; data: { versions: string[] } }>(
-      `/api/sessions/${sessionId}/review/versions`,
+  getReview: (sessionId: string) =>
+    request<{ status: string; data: { version: string; content: string } }>(
+      `/api/sessions/${sessionId}/review`,
     ),
 
   // Matrix
@@ -80,8 +73,101 @@ export const api = {
     ),
 
   // Library
-  getLibrary: () =>
-    request<{ status: string; data: { items: import('./types').LibraryItem[] } }>(
-      '/api/library',
+  getLibrary: (params?: { search?: string; tags?: string[] }) => {
+    const sp = new URLSearchParams();
+    if (params?.search) sp.set('search', params.search);
+    if (params?.tags?.length) sp.set('tags', params.tags.join(','));
+    const qs = sp.toString();
+    return request<{ status: string; data: { items: import('./types').LibraryItem[] } }>(
+      `/api/library${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  getLibraryItem: (key: string) =>
+    request<{ status: string; data: import('./types').LibraryItem }>(
+      `/api/library/${encodeURIComponent(key)}`,
+    ),
+
+  updateLibraryItem: (key: string, updates: Record<string, unknown>) =>
+    request<{ status: string; data: import('./types').LibraryItem }>(
+      `/api/library/${encodeURIComponent(key)}`,
+      { method: 'PATCH', body: JSON.stringify(updates) },
+    ),
+
+  refreshMetadata: (key: string) =>
+    request<{ status: string; data: import('./types').LibraryItem }>(
+      `/api/library/${encodeURIComponent(key)}/refresh`,
+      { method: 'POST' },
+    ),
+
+  // Settings — System config
+  getSystemConfig: () =>
+    request<{ status: string; data: Record<string, unknown> }>('/api/settings/system'),
+
+  updateSystemConfig: (config: Record<string, unknown>) =>
+    request<{ status: string }>('/api/settings/system', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+
+  // Settings — Credentials
+  getCredentials: () =>
+    request<{ status: string; data: Record<string, { masked: string }> }>('/api/settings/credentials'),
+
+  updateCredentials: (creds: Record<string, string>) =>
+    request<{ status: string }>('/api/settings/credentials', {
+      method: 'PUT',
+      body: JSON.stringify(creds),
+    }),
+
+  testCredential: (key: string) =>
+    request<{ status: string; data: { ok: boolean; message: string } }>(
+      `/api/settings/credentials/${encodeURIComponent(key)}/test`,
+      { method: 'POST' },
+    ),
+
+  // Settings — LLM Instances
+  getInstances: () =>
+    request<{ status: string; data: { instances: import('./types').LLMInstance[] } }>('/api/settings/instances'),
+
+  createInstance: (instance: Record<string, unknown>) =>
+    request<{ status: string; data: import('./types').LLMInstance }>('/api/settings/instances', {
+      method: 'POST',
+      body: JSON.stringify(instance),
+    }),
+
+  updateInstance: (id: string, updates: Record<string, unknown>) =>
+    request<{ status: string; data: import('./types').LLMInstance }>(
+      `/api/settings/instances/${id}`,
+      { method: 'PATCH', body: JSON.stringify(updates) },
+    ),
+
+  deleteInstance: (id: string) =>
+    request<{ status: string }>(`/api/settings/instances/${id}`, { method: 'DELETE' }),
+
+  testInstance: (id: string) =>
+    request<{ status: string; data: { ok: boolean; message: string } }>(
+      `/api/settings/instances/${id}/test`,
+      { method: 'POST' },
+    ),
+
+  // Settings — Capabilities
+  getCapabilities: () =>
+    request<{ status: string; data: { bindings: import('./types').CapabilityBinding[] } }>('/api/settings/capabilities'),
+
+  updateCapability: (capability: string, binding: Record<string, unknown>) =>
+    request<{ status: string }>(
+      `/api/settings/capabilities/${encodeURIComponent(capability)}`,
+      { method: 'PUT', body: JSON.stringify(binding) },
+    ),
+
+  // Settings — Prompts
+  getPrompts: () =>
+    request<{ status: string; data: { prompts: import('./types').PromptConfig[] } }>('/api/settings/prompts'),
+
+  updatePrompt: (name: string, config: Record<string, unknown>) =>
+    request<{ status: string }>(
+      `/api/settings/prompts/${encodeURIComponent(name)}`,
+      { method: 'PUT', body: JSON.stringify(config) },
     ),
 };

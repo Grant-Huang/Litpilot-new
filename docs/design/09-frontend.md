@@ -6,33 +6,49 @@
 
 ## 1. 技术栈与目录
 
-- Next.js（App Router）+ TypeScript + React 18。
-- 样式：接入 `docs/brand/tokens.css`（CSS 变量）与 `docs/brand/tailwind.tokens.js`（如用 Tailwind）。
+- Next.js 16.2.9 LTS（App Router）+ TypeScript + React 19。
+- 样式：Tailwind CSS + `docs/brand/tokens.css`（CSS 变量）。
 - Logo：`docs/brand/react/LitPilotMark.tsx`（零依赖组件）。
+- 全局通知：`ToastProvider`（info/success/error 三级）。
 
 ```
 frontend/
 ├── app/
-│   ├── layout.tsx                 # 全局布局、字体(Geist)、brand tokens
+│   ├── layout.tsx                 # 全局布局 + ToastProvider + Geist 字体 + brand tokens
 │   ├── page.tsx                   # 重定向到 /chat
-│   ├── chat/[[...sessionId]]/page.tsx
-│   ├── library/page.tsx
+│   ├── chat/
+│   │   ├── page.tsx               # 主聊天页（使用 ChatShell 无 initialSessionId）
+│   │   └── [sessionId]/page.tsx   # 动态路由聊天页（使用 ChatShell + initialSessionId）
+│   ├── library/page.tsx           # 文献库（完整实现：搜索/筛选/标签/详情/编辑）
 │   └── settings/
-│       ├── layout.tsx             # 设置侧栏
-│       ├── personal/page.tsx
-│       └── admin/{page,storage,credentials,instances,capabilities,prompts}/page.tsx
+│       ├── layout.tsx             # 设置侧栏导航
+│       ├── personal/page.tsx      # 个人设置（只读说明）
+│       └── admin/
+│           ├── page.tsx           # 系统概览
+│           ├── storage/page.tsx   # 存储配置表单
+│           ├── credentials/page.tsx # 凭据管理（编辑/保存/测试）
+│           ├── instances/page.tsx  # LLM 实例 CRUD + 测试
+│           ├── capabilities/page.tsx # 能力绑定选择器
+│           └── prompts/page.tsx    # 提示词编辑器
 ├── components/
-│   ├── chat/ (ChatBubble, AssistantTurn, WorkflowCard, LogRow, SearchProgressView, TurnCompletionBar, Composer)
-│   ├── artifact/ (ArtifactPanel, OutlineView, ReviewView, MatrixView, LiteratureView)
-│   ├── library/ (LibraryListPanel, LibraryRefCard, LibraryDetailPane, DoiEditor, TagEditor)
-│   └── settings/ (InlineField, InlineCheck, FieldTip, SettingToolbar, SettingsListPanel)
+│   ├── ToastProvider.tsx          # 全局 Toast 通知（固定定位右下角）
+│   ├── NavSidebar.tsx             # 导航侧栏（/chat, /library, /settings）
+│   ├── LitPilotMark.tsx           # 品牌 Logo
+│   ├── chat/
+│   │   ├── ChatShell.tsx          # 共享聊天逻辑（会话管理/SSE/发送）
+│   │   ├── SessionList.tsx        # 会话列表（重命名/删除/置顶/菜单）
+│   │   ├── MessageArea.tsx        # 消息渲染（rAF 批处理/澄清卡/流式文本）
+│   │   ├── WorkflowCard.tsx       # 流程卡片（日志行展开/折叠）
+│   │   ├── TurnCompletionBar.tsx  # 回合完成统计栏
+│   │   └── Composer.tsx           # 输入器（文本/URL/文件上传）
+│   └── artifact/
+│       └── ArtifactPanel.tsx      # 产物面板（大纲/综述/矩阵/文献 Tab）
 ├── lib/
-│   ├── api.ts                     # REST 客户端（统一响应解包）
-│   ├── sse.ts                     # SSE 解析 + 流状态机
-│   ├── stream-reducer.ts          # 事件 → executionTrace/artifact 累积
-│   ├── types.ts                   # 与 02/03/04 对齐的 TS 类型
-│   └── store.ts                   # 会话/激活态（localStorage litpilot:active-session）
+│   ├── api.ts                     # REST 客户端（完整 CRUD：sessions/library/settings）
+│   ├── sse.ts                     # SSE 解析 + reduceEvent 状态机 + connectStream
+│   └── types.ts                   # TypeScript 类型（与 02/04 对齐）
 └── styles/
+    └── tokens.css                 # brand tokens CSS 变量
 ```
 
 ## 2. /chat 四列布局
@@ -76,35 +92,39 @@ frontend/
 - 流式中→「■ 停止」(DELETE task)。
 - 静默提示（`silenceSec`：<5 不提示 / 5–19 waiting / ≥20 slow）；并行度芯片（从 `literature_search_plan`/`literature_progress` 提取，只读）。
 
-## 3. SSE 消费与流状态机（`lib/sse.ts` + `stream-reducer.ts`）
+## 3. SSE 消费与流状态机（`lib/sse.ts` 实际实现）
 
 ```
 idle → pending → streaming → settling → done|error
 ```
 
-- `EventSource` 不支持自定义 since header，故用 `fetch` + `ReadableStream` 手解析 `event:`/`data:`。
-- rAF 批处理：事件入队，`requestAnimationFrame` 每帧最多一次 setState；`done/error` 同步 flush。
-- 120s 看门狗：每 chunk 重置；超时 abort + 错误态 + 重试。
-- reducer 把事件累积成：
-  - `executionTrace: WorkflowCard[]`（按 stage/extension 映射，见 04 §5）。
-  - `artifacts: { review, matrix, outline }`（按 artifact id 累积 delta）。
-  - `chatText` / `processText`（按 delivery）。
-  - `turnWorkflow`（来自 `turn_end`）。
-- `done` → 组装 `LitPilotMessage`，落盘 + 回读（见 08 §5）。
+- `fetch` + `ReadableStream` 手解析 SSE 帧（`event:`/`data:` 行）。
+- `connectStream(taskId, since, onEvent, onDone, onError)` → 返回 `AbortController`。
+- `reduceEvent(state, event)` → 按事件类型更新 `StreamState`：
+  - `stage` → `updateTrace` 映射中文阶段名为 stage 标识，更新 `executionTrace`。
+  - `text` → 累积到 `state.text`（不区分 delivery）。
+  - `think` → 累积到 `state.think`。
+  - `artifact` → 按 id 累积 delta 到对应 artifacts 字段。
+  - `extension` → 处理 `literature_intent` 设置 intent。
+  - `done` → 设置 status=done，提取 reviewVersion。
+  - `error` → 设置错误信息。
+- `INITIAL_STATE` 常量导出用于重置。
+- 120s 看门狗：每 chunk 重置计时器；超时 abort + 错误态。
+- rAF 批处理：`MessageArea` 组件内用 `requestAnimationFrame` 包裹 `setStream` 状态更新，每帧最多一次 React 提交。
 
 ## 4. Artifact 面板（四 Tab）
 
 | Tab | 组件 | 数据源 |
 |-----|------|--------|
-| 大纲 | `OutlineView` | artifact `literature-outline+json` / `GET /sessions/{id}/outline` |
-| 综述 | `ReviewView` | artifact `markdown` + `GET /sessions/{id}/review?version=` |
-| 矩阵 | `MatrixView` | artifact `literature-matrix+markdown` / `GET /sessions/{id}/matrix` |
-| 文献 | `LiteratureView` | `GET /sessions/{id}/library` |
+| 大纲 | 内联渲染 | artifact `literature-outline+json` / `GET /sessions/{id}/outline` |
+| 综述 | 内联渲染 | artifact `markdown` + `GET /sessions/{id}/review` |
+| 矩阵 | 内联渲染 | artifact `literature-matrix+markdown` / `GET /sessions/{id}/matrix` |
+| 文献 | 内联渲染 | `GET /api/library`（全局文献库） |
 
-- `ReviewView`：版本下拉（latest/v1/v2…）+ 导出（下载 .md / 复制）。
-- `MatrixView`：渲染 markdown 表格。
-- `LiteratureView`：本会话条目，可按 `subtopic_tags` 筛选、复制 APA。
-- 可见性：存在综述即有面板；未打开时轻推动画（~4s 脉冲）+ 完成栏 CTA。
+- 综述 Tab：导出按钮（复制/下载 .md）。**不做版本下拉选择器**，始终展示最新版本。
+- 矩阵 Tab：渲染 markdown 表格。
+- 文献 Tab：全局文献库条目列表。
+- 可见性：存在综述/matrix/outline 产物即显示面板。
 - 流式中钉住产物；流结束保持；切会话重置重载。
 
 ## 5. /library 文献库（两栏）
@@ -126,36 +146,90 @@ idle → pending → streaming → settling → done|error
 ### 6.1 个人（精简版）
 - 只读说明卡：「引用格式固定为 APA（本版本不可切换）」。无可保存字段。
 
-### 6.2 管理员侧栏
-| 分组 | 项 | 路由 |
-|------|----|------|
-| System | 概览 | `/settings/admin` |
-| System | 存储 | `/settings/admin/storage` |
-| Connect | 凭据 | `/settings/admin/credentials` |
-| Connect | 实例库 | `/settings/admin/instances` |
-| Capability | 检索与抓取 | `/settings/admin/capabilities` |
-| Capability | 编排与综述 | `/settings/admin/prompts` |
+### 6.2 管理员（实际实现）
+| 分组 | 项 | 路由 | 功能 |
+|------|----|------|------|
+| System | 概览 | `/settings/admin` | Python 版本/存储模式/统计卡片（凭据/实例/能力/文献/会话数） |
+| System | 存储 | `/settings/admin/storage` | 存储模式/数据目录/最大空间 表单 + 保存 |
+| Connect | 凭据 | `/settings/admin/credentials` | 7 种凭据编辑 + 掩码显示 + 测试按钮 + 保存 |
+| Connect | 实例库 | `/settings/admin/instances` | LLM 实例 CRUD 表单（provider/model/baseURL/key/tokens/temp）+ 测试 + 删除 |
+| Capability | 检索与抓取 | `/settings/admin/capabilities` | 5 类能力绑定下拉选择 + 保存 |
+| Capability | 编排与综述 | `/settings/admin/prompts` | 4 个提示词 textarea 编辑器 + 保存/重置 |
 
-- 共享组件：`InlineField`/`InlineCheck`/`FieldTip`/`SettingToolbar`（标题|状态徽标|反馈|操作）/`SettingsListPanel`。
-- 状态徽标：ok=绿 / fail=红 / pending|unknown=灰。
-- 离开守卫：dirty 时离页提醒。
-- 凭据 API Key 字段：已存在显示掩码，聚焦可编辑，失焦留空回退掩码。
-- 能力页字段表见 FRS §4.6（web_search/web_fetch 参数、约束、默认值）；底部 Web 连通测试面板。
-- Prompts 页：按阶段分组，每条 = 模板 textarea + max_tokens + 实例下拉；全局保存条（dirty）。
+**关键实现**：
+- 每个管理页均为 'use client' 组件，通过 `api.*` 客户端与后端 CRUD 端点交互。
+- 凭据页：支持 7 种预定义密钥（OpenAI/DeepSeek/MiniMax/Tavily/Brave/Jina/Semantic Scholar）。
+- 实例页：完整 CRUD（新增/编辑/删除）+ 连接测试按钮。
+- 能力页：下拉选择绑定的 LLM 实例。
+- 提示词页：按阶段分组的 textarea 编辑器，支持独立保存和重置。
+- 所有保存操作使用 `useToast` 提供操作反馈。
 
-## 7. 类型定义（`lib/types.ts` 摘要，与 02/04 对齐）
+## 7. 类型定义（`lib/types.ts` 实际实现，与 02/04 对齐）
 
 ```typescript
 type Delivery = "chat" | "process" | "artifact";
-type CardType = "understand"|"brief"|"search"|"fetch"|"cite"|"attributes"|"outline"|"generate"|"matrix"|"corpus_qa"|"clarify"|"manage";
-type CardState = "pending"|"running"|"done"|"error";
-type Intent = "new_topic"|"append_urls"|"query_corpus";
+type CardState = "pending" | "running" | "done" | "error";
+type Intent = "new_topic" | "append_urls" | "query_corpus";
 
-interface WorkflowCard { type: CardType; title: string; state: CardState; summary?: string; steps: LogStep[]; tree?: SearchTree; }
-interface LogStep { kind: "tool"|"inline"|"think"; state: CardState; text: string; result?: string; detail?: string; }
-interface LitPilotMessage { id: string; session_id: string; role: "user"|"assistant"; content: string; created_at: string; extras?: MessageExtras; }
-interface MessageExtras { delivery?: Delivery; artifactKind?: "review"|"matrix"|"outline"|"none"; intent?: Intent; executionTrace?: WorkflowCard[]; turnWorkflow?: TurnWorkflow; review_version?: string; }
+// 简化版 WorkflowCard（实际实现）
+interface WorkflowCard { stage: string; state: CardState; logs?: string[]; }
+
+interface LitPilotMessage {
+  id: string; session_id: string; role: "user"|"assistant";
+  content: string; created_at: string; extras?: MessageExtras;
+}
+
+interface MessageExtras {
+  delivery?: Delivery;
+  artifactKind?: "review"|"matrix"|"outline"|"none";
+  intent?: Intent;
+  executionTrace?: WorkflowCard[];
+  review_version?: string;
+  clarification?: string;   // 澄清卡提示文本
+}
+
+// SSE 流状态（实际实现）
+interface StreamState {
+  status: 'idle' | 'pending' | 'streaming' | 'settling' | 'done' | 'error';
+  executionTrace: WorkflowCard[];
+  artifacts: { review: string; matrix: string; outline: string };
+  text: string;     // 合并了 chatText + processText
+  think: string;    // 思考区独立
+  intent?: Intent;
+  reviewVersion?: string;
+  error?: string;
+}
+
+const INITIAL_STATE: StreamState;   // 初始空状态常量
+
+interface SessionMeta {
+  id: string; title: string; created_at: string; updated_at: string;
+  user_turns: number; has_review: boolean; has_matrix: boolean;
+  initial_query?: string; last_intent?: Intent; pinned?: boolean;
+}
+
+interface LibraryItem {
+  display_index: number; title: string; authors: string; year: string;
+  doi: string; url: string; apa_citation: string; venue: string;
+  abstract: string; tags: string[]; has_full_text: boolean;
+  has_pdf: boolean; fetch_status: string; canonical_key: string;
+}
+
+interface LLMInstance {
+  id: string; name: string; provider: string; model: string;
+  base_url: string; api_key_set: boolean; max_tokens: number; temperature: number;
+}
+
+interface CapabilityBinding { capability: string; instance_id: string; instance_name?: string; }
+
+interface PromptConfig { name: string; system_prompt: string; temperature?: number; max_tokens?: number; }
 ```
+
+**关键变更**：
+- `WorkflowCard` 简化为 `{stage, state, logs}`（移除 `type/title/summary/steps/tree`）。
+- `StreamState.text` 合并了原 `chatText` + `processText`；新增 `think` 独立字段。
+- `MessageExtras` 新增 `clarification` 字段（澄清卡提示）。
+- 新增 `LLMInstance`、`CapabilityBinding`、`PromptConfig`（管理页面所需）。
 
 ## 8. 错误与边界（FRS §1.10）
 

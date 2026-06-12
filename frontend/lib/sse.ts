@@ -5,19 +5,12 @@
  * custom `since` parameter for reconnection.
  */
 
-import type { MesoEvent, StreamState, Intent } from './types';
+import type { MesoEvent, StreamState, Intent, WorkflowCard } from './types';
+import { INITIAL_STATE } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export type StreamCallback = (state: StreamState) => void;
-
-const INITIAL_STATE: StreamState = {
-  status: 'idle',
-  executionTrace: [],
-  artifacts: { review: '', matrix: '', outline: '' },
-  chatText: '',
-  processText: '',
-};
 
 /**
  * Connect to task SSE stream and process events.
@@ -68,7 +61,6 @@ export function connectStream(
         resetWatchdog();
         buffer += decoder.decode(value, { stream: true });
 
-        // Parse SSE frames
         const frames = buffer.split('\n\n');
         buffer = frames.pop() || '';
 
@@ -135,26 +127,28 @@ export function reduceEvent(
         executionTrace: updateTrace(state.executionTrace, d),
       };
 
-    case 'text':
+    case 'text': {
+      const delta = (d.delta as string) || '';
       return {
         ...state,
         status: 'streaming',
-        ...(d.delivery === 'chat'
-          ? { chatText: state.chatText + (d.delta as string) }
-          : { processText: state.processText + (d.delta as string) }),
+        text: state.text + delta,
       };
+    }
 
-    case 'think':
+    case 'think': {
+      const delta = (d.delta as string) || '';
       return {
         ...state,
         status: 'streaming',
-        processText: state.processText + (d.delta as string),
+        think: state.think + delta,
       };
+    }
 
     case 'artifact': {
       const id = d.id as string;
-      const delta = d.delta as string;
-      const key = id.includes('matrix')
+      const delta = (d.delta as string) || '';
+      const key: 'matrix' | 'outline' | 'review' = id.includes('matrix')
         ? 'matrix'
         : id.includes('outline')
           ? 'outline'
@@ -194,13 +188,14 @@ export function reduceEvent(
 }
 
 function updateTrace(
-  trace: import('./types').WorkflowCard[],
+  trace: WorkflowCard[],
   data: Record<string, unknown>,
-): import('./types').WorkflowCard[] {
+): WorkflowCard[] {
   const name = data.name as string;
   const stageState = data.state as string;
+  const log = data.log as string | undefined;
 
-  const typeMap: Record<string, string> = {
+  const stageMap: Record<string, string> = {
     '理解研究问题': 'understand',
     '研究计划': 'brief',
     '文献检索': 'search',
@@ -217,23 +212,20 @@ function updateTrace(
     '文献库操作': 'manage',
   };
 
-  const cardType = typeMap[name] || name;
-  const existing = trace.findIndex((c) => c.type === cardType);
-
-  const card: import('./types').WorkflowCard = {
-    type: cardType,
-    title: name,
-    state: stageState as import('./types').CardState,
-    steps: [],
-  };
+  const stage = stageMap[name] || name;
+  const existing = trace.findIndex((c) => c.stage === stage);
 
   if (existing >= 0) {
     const updated = [...trace];
-    updated[existing] = { ...updated[existing], state: card.state };
+    const card = { ...updated[existing], state: stageState as WorkflowCard['state'] };
+    if (log) {
+      card.logs = [...(card.logs || []), log];
+    }
+    updated[existing] = card;
     return updated;
   }
 
-  return [...trace, card];
+  return [...trace, { stage, state: stageState as WorkflowCard['state'], logs: log ? [log] : [] }];
 }
 
 export { INITIAL_STATE };

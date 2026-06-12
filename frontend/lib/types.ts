@@ -21,14 +21,13 @@ export interface MessageExtras {
   intent?: Intent;
   executionTrace?: WorkflowCard[];
   review_version?: string;
+  clarification?: string;
 }
 
 export interface WorkflowCard {
-  type: string;
-  title: string;
+  stage: string;
   state: CardState;
-  summary?: string;
-  steps: LogStep[];
+  logs?: string[];
 }
 
 export interface LogStep {
@@ -48,6 +47,17 @@ export interface MesoEvent {
   };
 }
 
+export const INITIAL_STATE: StreamState = {
+  status: 'idle',
+  executionTrace: [],
+  artifacts: { review: '', matrix: '', outline: '' },
+  text: '',
+  think: '',
+  intent: undefined,
+  reviewVersion: undefined,
+  error: undefined,
+};
+
 export interface StreamState {
   status: 'idle' | 'pending' | 'streaming' | 'settling' | 'done' | 'error';
   executionTrace: WorkflowCard[];
@@ -56,8 +66,8 @@ export interface StreamState {
     matrix: string;
     outline: string;
   };
-  chatText: string;
-  processText: string;
+  text: string;
+  think: string;
   intent?: Intent;
   reviewVersion?: string;
   error?: string;
@@ -91,4 +101,28 @@ export interface LibraryItem {
   has_pdf: boolean;
   fetch_status: string;
   canonical_key: string;
+}
+
+export interface LLMInstance {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key_set: boolean;
+  max_tokens: number;
+  temperature: number;
+}
+
+export interface CapabilityBinding {
+  capability: string;
+  instance_id: string;
+  instance_name?: string;
+}
+
+export interface PromptConfig {
+  name: string;
+  system_prompt: string;
+  temperature?: number;
+  max_tokens?: number;
 }
