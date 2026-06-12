@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 60
-    }
-  },
   "env": {
     "LITPILOT_DATA_DIR": "/tmp/litpilot-data",
     "LITPILOT_CONFIG_DIR": "/tmp/litpilot-config"

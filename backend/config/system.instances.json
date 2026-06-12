@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "e29a698bef81b9c0",
+      "name": "DeepSeek Chat",
+      "provider": "deepseek",
+      "credential_id": "",
+      "model_name": "deepseek-chat",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key_set": true,
+      "max_tokens": 4096,
+      "temperature": 0.7,
+      "default_params": {},
+      "status": "unknown",
+      "created_at": "2026-06-12T05:29:14.683314+00:00",
+      "updated_at": "2026-06-12T05:29:14.683314+00:00",
+      "api_key": "sk-ds-test"
+    }
+  ]
+}
