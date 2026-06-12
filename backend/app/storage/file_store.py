@@ -216,5 +216,6 @@ _store_instance: FileStore | None = None
 def get_store() -> FileStore:
     global _store_instance
     if _store_instance is None:
-        _store_instance = FileStore()
+        from app.config.paths import data_dir
+        _store_instance = FileStore(data_dir())
     return _store_instance

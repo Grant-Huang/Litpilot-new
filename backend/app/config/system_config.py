@@ -149,7 +149,11 @@ class SystemConfig:
 
     def list_instances(self) -> list[dict]:
         data = _read_json(self._dir / _INSTANCES_FILE) or {"items": []}
-        return [dict(i) for i in data["items"]]
+        result = []
+        for i in data["items"]:
+            public = {k: v for k, v in i.items() if k != "api_key"}
+            result.append(public)
+        return result
 
     def get_instance(self, inst_id: str) -> dict | None:
         data = _read_json(self._dir / _INSTANCES_FILE) or {"items": []}
@@ -163,34 +167,64 @@ class SystemConfig:
         cred = self.get_credential(cred_id) if cred_id else None
         data = _read_json(self._dir / _INSTANCES_FILE) or {"items": []}
         now = _now_iso()
+        provider = ""
+        if cred:
+            provider = _provider_from_cred_type(cred["type"])
+        elif payload.get("provider"):
+            provider = payload["provider"]
         item = {
             "id": _gen_id(),
             "name": payload.get("name", ""),
-            "provider": _provider_from_cred_type(cred["type"]) if cred else "",
+            "provider": provider,
             "credential_id": cred_id,
-            "model_name": payload.get("model_name", ""),
+            "model_name": payload.get("model_name", "")
+            or payload.get("model", ""),
+            "base_url": payload.get("base_url", ""),
+            "api_key_set": bool(payload.get("api_key")),
+            "max_tokens": payload.get("max_tokens", 4096),
+            "temperature": payload.get("temperature", 0.7),
             "default_params": payload.get("default_params", {}),
             "status": "unknown",
             "created_at": now,
             "updated_at": now,
         }
+        if payload.get("api_key"):
+            item["api_key"] = payload["api_key"]
         data["items"].append(item)
         atomic_write_json(self._dir / _INSTANCES_FILE, data)
-        return dict(item)
+        public = {k: v for k, v in item.items() if k != "api_key"}
+        return public
 
     def update_instance(self, inst_id: str, payload: dict) -> dict:
         data = _read_json(self._dir / _INSTANCES_FILE) or {"items": []}
         for item in data["items"]:
             if item["id"] == inst_id:
-                for key in ("name", "credential_id", "model_name", "default_params"):
+                for key in ("name", "credential_id", "model_name", "model",
+                            "base_url", "max_tokens", "temperature",
+                            "default_params"):
                     if key in payload:
                         item[key] = payload[key]
+                if "provider" in payload:
+                    item["provider"] = payload["provider"]
                 if "credential_id" in payload:
                     cred = self.get_credential(payload["credential_id"])
-                    item["provider"] = _provider_from_cred_type(cred["type"]) if cred else ""
+                    item["provider"] = (
+                        _provider_from_cred_type(cred["type"]) if cred
+                        else item.get("provider", "")
+                    )
+                if "model" in payload and "model_name" not in payload:
+                    item["model_name"] = payload["model"]
+                if "api_key" in payload:
+                    if payload["api_key"]:
+                        item["api_key"] = payload["api_key"]
+                        item["api_key_set"] = True
+                    else:
+                        item.pop("api_key", None)
+                        item["api_key_set"] = False
                 item["updated_at"] = _now_iso()
                 atomic_write_json(self._dir / _INSTANCES_FILE, data)
-                return dict(item)
+                public = {k: v for k, v in item.items() if k != "api_key"}
+                return public
         raise KeyError(f"instance {inst_id} not found")
 
     def delete_instance(self, inst_id: str) -> None:

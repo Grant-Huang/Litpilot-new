@@ -31,6 +31,7 @@ Thumbs.db
 # Data
 data/
 *.json.bak
+config/system.*.json
 
 # Pytest
 backend/.pytest_cache/
