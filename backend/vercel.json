@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.14",
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "LITPILOT_DATA_DIR": "/tmp/litpilot-data",
+    "LITPILOT_CONFIG_DIR": "/tmp/litpilot-config"
+  }
+}
