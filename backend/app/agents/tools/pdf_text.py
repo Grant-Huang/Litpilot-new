@@ -15,7 +15,7 @@ PYMUPDF4LLM_LICENSE_NOTE = (
 
 
 def normalize_pdf_extract_backend(raw: str | None) -> str:
-    b = (raw or "pymupdf4llm").strip().lower()
+    b = (raw or "pypdf").strip().lower()
     return b if b in PDF_EXTRACT_BACKENDS else "pypdf"
 
 
