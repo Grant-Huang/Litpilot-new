@@ -107,11 +107,24 @@ def build_runtime_settings() -> dict[str, Any]:
                 ref = item.get("primary_ref")
                 if ref and ref.get("kind") == "instance":
                     inst = inst_map.get(ref["id"], {})
-                    cred = cred_map.get(inst.get("credential_id", ""), {})
+                    cred_id = inst.get("credential_id", "")
+                    cred = cred_map.get(cred_id, {}) if cred_id else {}
+                    base_url = (
+                        cred.get("base_url", "")
+                        or inst.get("base_url", "")
+                    )
+                    api_key = (
+                        cred.get("secret", "")
+                        or inst.get("api_key", "")
+                    )
+                    provider = (
+                        _provider_from_cred(cred.get("type", ""))
+                        or inst.get("provider", "")
+                    )
                     return {
-                        "provider": _provider_from_cred(cred.get("type", "")),
-                        "base_url": cred.get("base_url", ""),
-                        "api_key": cred.get("secret", ""),
+                        "provider": provider,
+                        "base_url": base_url,
+                        "api_key": api_key,
                         "model": inst.get("model_name", ""),
                         "max_tokens": (item.get("params") or {}).get(
                             "max_tokens", 3000

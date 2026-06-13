@@ -73,21 +73,34 @@ async def run_turn(
             session_id,
             pending_gate=None,
             resume_mode=resolution.get("resume_mode"),
-            user_turns=user_turns + 1,
         )
         if resolution["action"] == "cancel":
+            store.update_meta(
+                session_id,
+                user_turns=user_turns + 1,
+                last_intent="cancelled",
+            )
             return {
                 "content": "已取消。",
                 "extras": {"intent": "cancelled", "delivery": "chat"},
             }
         intent = "new_topic"
     else:
+        # Use incremented turn count for routing: first message is turn 1
         intent = route_intent(
-            user_turns=user_turns,
+            user_turns=user_turns + 1,
             message=message,
             fetch_urls=fetch_urls,
             has_corpus=has_corpus,
         )
+
+    # Update turn count BEFORE execution so concurrent turns route correctly
+    store.update_meta(
+        session_id,
+        user_turns=user_turns + 1,
+        last_intent=intent,
+        initial_query=meta.get("initial_query") or message,
+    )
 
     await emit.extension("literature_intent", {
         "intent": intent,
@@ -123,14 +136,6 @@ async def run_turn(
             store=store,
             llm=llm,
         )
-
-    # Update turn count
-    store.update_meta(
-        session_id,
-        user_turns=user_turns + 1,
-        last_intent=intent,
-        initial_query=meta.get("initial_query") or message,
-    )
 
     return result
 
